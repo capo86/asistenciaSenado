@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { Evento, EventoEstado } from '@/types/evento'
 
+const FLYER_BUCKET = 'eventos-flyers'
+const MAX_FLYER_SIZE_BYTES = 5 * 1024 * 1024
+
 type EventoResponse = {
   evento: RawEvento | null
 }
@@ -53,6 +56,23 @@ function readErrorMessage(value: unknown) {
   }
 
   return null
+}
+
+function createFlyerPath(eventoId: string, file: File) {
+  const extensionFromName = file.name.split('.').pop()?.toLowerCase()
+  const extensionFromType =
+    file.type === 'image/png'
+      ? 'png'
+      : file.type === 'image/webp'
+        ? 'webp'
+        : 'jpg'
+  const extension = extensionFromName || extensionFromType
+  const fileId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : String(Date.now())
+
+  return `${eventoId}/${fileId}.${extension}`
 }
 
 async function readFunctionErrorMessage(context: unknown) {
@@ -181,4 +201,46 @@ export async function guardarEventoPanel(evento: Evento) {
   }
 
   return normalizeEvento(data.evento)
+}
+
+export async function subirFlyerEvento(eventoId: string, file: File) {
+  if (!supabase) {
+    throw new Error('Servicio no disponible.')
+  }
+
+  const { data: sessionData, error: sessionError } =
+    await supabase.auth.getSession()
+
+  if (sessionError || !sessionData.session) {
+    throw new Error('Debes iniciar sesion para cargar el flyer.')
+  }
+
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Selecciona una imagen valida.')
+  }
+
+  if (file.size > MAX_FLYER_SIZE_BYTES) {
+    throw new Error('El flyer no puede superar 5 MB.')
+  }
+
+  const path = createFlyerPath(eventoId, file)
+  const { error } = await supabase.storage
+    .from(FLYER_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      contentType: file.type,
+      upsert: false,
+    })
+
+  if (error) {
+    throw new Error(error.message || 'No se pudo cargar el flyer.')
+  }
+
+  const { data } = supabase.storage.from(FLYER_BUCKET).getPublicUrl(path)
+
+  if (!data.publicUrl) {
+    throw new Error('No se pudo obtener el enlace del flyer.')
+  }
+
+  return data.publicUrl
 }

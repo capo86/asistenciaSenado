@@ -1,4 +1,11 @@
-import { lazy, Suspense, type FormEvent, useEffect, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useState,
+} from 'react'
 import {
   ArrowLeft,
   BadgeCheck,
@@ -7,12 +14,16 @@ import {
   ClipboardList,
   Download,
   FilePenLine,
+  ImageIcon,
+  ImageUp,
   Loader2,
   LayoutGrid,
   ListChecks,
   LogOut,
+  Mail,
   MapPin,
   Moon,
+  Phone,
   QrCode,
   Save,
   Search,
@@ -48,6 +59,7 @@ import {
 import {
   guardarEventoPanel,
   listarEventosPanel,
+  subirFlyerEvento,
 } from '@/lib/eventosApi'
 import { isDataServiceConfigured } from '@/lib/supabaseClient'
 import {
@@ -116,6 +128,7 @@ export function PanelPage() {
   const [isEventosLoading, setIsEventosLoading] = useState(false)
   const [isAsistenciasLoading, setIsAsistenciasLoading] = useState(false)
   const [isSavingEvento, setIsSavingEvento] = useState(false)
+  const [isUploadingFlyer, setIsUploadingFlyer] = useState(false)
   const { theme, toggleTheme } = useThemeMode()
   const user = useSessionStore((state) => state.user)
   const signOut = useSessionStore((state) => state.signOut)
@@ -240,6 +253,42 @@ export function PanelPage() {
       })
     } finally {
       setIsSavingEvento(false)
+    }
+  }
+
+  async function handleFlyerChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) {
+      return
+    }
+
+    if (!isDataServiceConfigured) {
+      toast.error('No se pudo cargar el flyer', {
+        description: 'El servicio no esta disponible en este entorno.',
+      })
+      return
+    }
+
+    setIsUploadingFlyer(true)
+
+    try {
+      const flyerUrl = await subirFlyerEvento(evento.id, file)
+
+      updateEvento({ flyer_url: flyerUrl })
+      toast.success('Flyer cargado', {
+        description: 'Guarda el evento para publicar la imagen.',
+      })
+    } catch (error) {
+      toast.error('No se pudo cargar el flyer', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Selecciona otra imagen e intenta nuevamente.',
+      })
+    } finally {
+      setIsUploadingFlyer(false)
     }
   }
 
@@ -584,6 +633,62 @@ export function PanelPage() {
                       />
                     </div>
 
+                    <div className="grid gap-4 rounded-lg border bg-muted/20 p-3 lg:grid-cols-[1fr_15rem]">
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="flyer_url">Flyer del evento</Label>
+                          <div className="relative">
+                            <ImageIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              id="flyer_url"
+                              value={evento.flyer_url ?? ''}
+                              onChange={(event) =>
+                                updateEvento({ flyer_url: event.target.value })
+                              }
+                              placeholder="URL publica del flyer"
+                              className="pl-10"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="flyer_file">Cargar imagen</Label>
+                          <Input
+                            id="flyer_file"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            onChange={handleFlyerChange}
+                            disabled={isUploadingFlyer || !isDataServiceConfigured}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            PNG, JPG o WebP. Maximo 5 MB.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-hidden rounded-md border bg-background/70">
+                        {evento.flyer_url ? (
+                          <img
+                            src={evento.flyer_url}
+                            alt={`Flyer de ${evento.nombre}`}
+                            className="h-56 w-full object-contain"
+                          />
+                        ) : (
+                          <div className="flex h-56 flex-col items-center justify-center gap-2 px-4 text-center text-sm text-muted-foreground">
+                            {isUploadingFlyer ? (
+                              <Loader2 className="size-5 animate-spin" />
+                            ) : (
+                              <ImageUp className="size-5" />
+                            )}
+                            <span>
+                              {isUploadingFlyer
+                                ? 'Cargando flyer'
+                                : 'Sin flyer cargado'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="grid gap-4 lg:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="lugar">Lugar</Label>
@@ -767,7 +872,7 @@ export function PanelPage() {
                     <div className="relative w-full sm:max-w-xs">
                       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        placeholder="Buscar por cedula o nombre"
+                        placeholder="Buscar por cedula, nombre o contacto"
                         className="pl-10"
                         disabled
                       />
@@ -786,9 +891,10 @@ export function PanelPage() {
                   ) : null}
 
                   <div className="overflow-hidden rounded-md border">
-                    <div className="hidden border-b bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[1.1fr_1.3fr_1fr_1fr]">
+                    <div className="hidden border-b bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[0.9fr_1.15fr_1.3fr_0.85fr_1fr]">
                       <span>Cedula</span>
                       <span>Nombre</span>
+                      <span>Contacto</span>
                       <span>Distancia</span>
                       <span>Fecha</span>
                     </div>
@@ -796,7 +902,7 @@ export function PanelPage() {
                       {selectedStats.rows.map((row) => (
                         <div
                           key={row.id}
-                          className="grid gap-3 px-3 py-3 text-sm md:grid-cols-[1.1fr_1.3fr_1fr_1fr] md:items-center md:gap-2"
+                          className="grid gap-3 px-3 py-3 text-sm md:grid-cols-[0.9fr_1.15fr_1.3fr_0.85fr_1fr] md:items-center md:gap-2"
                         >
                           <div>
                             <p className="text-xs text-muted-foreground md:hidden">
@@ -811,6 +917,25 @@ export function PanelPage() {
                             <p className="truncate text-muted-foreground">
                               {row.nombre_completo ?? 'Sin nombre'}
                             </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground md:hidden">
+                              Contacto
+                            </p>
+                            <div className="grid gap-1 text-muted-foreground">
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <Phone className="size-3.5 shrink-0" />
+                                <span className="truncate">
+                                  {row.telefono ?? 'Sin telefono'}
+                                </span>
+                              </span>
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <Mail className="size-3.5 shrink-0" />
+                                <span className="truncate">
+                                  {row.email ?? 'Sin correo'}
+                                </span>
+                              </span>
+                            </div>
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground md:hidden">

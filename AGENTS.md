@@ -16,6 +16,7 @@ Aplicacion web institucional para registrar asistencias a eventos de la Academia
 - Listado de asistencias reales del evento seleccionado.
 - Generacion de QR por evento, con opcion de copiar, descargar y compartir.
 - Mapa OpenStreetMap en el panel para marcar visualmente latitud/longitud del evento.
+- Carga de flyer por evento en Storage y visualizacion del flyer en el front publico.
 - Modo claro y oscuro.
 - Toasts con `sonner` para exito/error.
 - Favicon tomado del logo PNG de la Academia.
@@ -147,6 +148,8 @@ Campos:
 | `evento_id` | uuid | FK a `asistencias.evento(id)` |
 | `cedula` | text | normalizada a digitos |
 | `nombre_completo` | text | viene del padron si se encuentra |
+| `telefono` | text | dato opcional cargado por el asistente |
+| `email` | text | dato opcional cargado por el asistente |
 | `latitud` | double precision | posicion del participante |
 | `longitud` | double precision | posicion del participante |
 | `distancia_metros` | numeric | calculada en servidor |
@@ -195,6 +198,15 @@ Migracion: `202607260004_create_asistencia_panel_rpc.sql`.
 
 - `public.asistencias_list_panel(p_evento_id uuid)`: lista asistencias reales de un evento para el panel.
 
+### Contacto de asistentes y flyers
+
+Migracion: `202607260005_add_contact_fields_and_flyer_bucket.sql`.
+
+- Agrega `telefono` y `email` a `asistencias.asistencia`.
+- Actualiza `public.asistencias_registrar(...)` para recibir y validar esos campos.
+- Crea el bucket publico `eventos-flyers`.
+- Permite lectura publica de flyers y carga/actualizacion/borrado para usuarios autenticados.
+
 ## 7. Edge Functions
 
 Las funciones estan en `supabase/functions`.
@@ -242,6 +254,7 @@ Archivo: `supabase/functions/registrar-asistencia/index.ts`.
 Responsabilidad:
 
 - Recibe `evento_id`, `cedula`, `nombre_completo`, `latitud`, `longitud`.
+- Tambien recibe `telefono` y `email`.
 - Captura IP desde headers.
 - Llama a `public.asistencias_registrar(...)`.
 - Devuelve 429 cuando se alcanza el limite diario.
@@ -280,6 +293,8 @@ Estados:
   - Se carga `nombre_completo`.
   - Se bloquea el input de nombre para evitar edicion manual.
   - No mostrar el texto `Persona encontrada en el padron`.
+- El asistente puede cargar `telefono` y `email`; ambos son opcionales.
+- Si `email` viene informado, se valida en frontend y servidor.
 
 ### 8.4 Duplicados por cedula
 
@@ -313,6 +328,8 @@ Componentes y patrones:
 - Modo claro/oscuro con `next-themes` y `useThemeMode`.
 - QR del evento con logo de la Academia al centro.
 - Mapa de ubicacion en panel con OpenStreetMap/Leaflet.
+- Flyer del evento cargado en bucket `eventos-flyers` y guardado como URL publica en `evento.flyer_url`.
+- El front publico muestra el flyer debajo del titulo/descripcion en desktop y despues del formulario en mobile.
 
 Textos importantes:
 
@@ -374,6 +391,7 @@ supabase/
     202607260002_create_evento_public_rpc.sql
     202607260003_create_registrar_asistencia_rpc.sql
     202607260004_create_asistencia_panel_rpc.sql
+    202607260005_add_contact_fields_and_flyer_bucket.sql
 ```
 
 ## 11. Verificacion usada hasta ahora
@@ -395,6 +413,7 @@ Estado conocido:
 Tambien se verifico que:
 
 - Las RPC `public.asistencias_registrar` y `public.asistencias_list_panel` existen.
+- El bucket `eventos-flyers` existe, es publico y acepta PNG/JPG/WebP hasta 5 MB.
 - La Edge Function `registrar-asistencia` responde correctamente cuando el evento no existe.
 - El puerto local de Vite usado durante desarrollo fue `http://localhost:5173`.
 

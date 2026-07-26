@@ -4,11 +4,14 @@ import {
   Building2,
   CalendarDays,
   Clock3,
+  ImageIcon,
   Loader2,
   LocateFixed,
+  Mail,
   MapPin,
   Moon,
   Navigation,
+  Phone,
   Search,
   ShieldCheck,
   Sun,
@@ -72,9 +75,15 @@ function normalizeCedula(value: string) {
   return value.replace(/\D/g, '')
 }
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
 export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
   const [cedula, setCedula] = useState('')
+  const [email, setEmail] = useState('')
   const [nombreCompleto, setNombreCompleto] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [result, setResult] = useState<ResultState>({ kind: 'idle' })
   const [lookup, setLookup] = useState<LookupState>({ kind: 'idle' })
   const [isNombreLocked, setIsNombreLocked] = useState(false)
@@ -345,12 +354,24 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
       return
     }
 
+    const attendeeEmail = email.trim().toLowerCase()
+    const participantName = nombreCompleto.trim()
+    const attendeePhone = telefono.trim()
+
+    if (attendeeEmail && !isValidEmail(attendeeEmail)) {
+      setResult({
+        kind: 'error',
+        title: 'Correo invalido',
+        message: 'Ingresa un correo valido o deja el campo vacio.',
+      })
+      return
+    }
+
     setIsRegistering(true)
 
     try {
       const currentPosition = await requestLocation()
       const meters = haversineDistanceMeters(currentPosition, activeEvento)
-      const participantName = nombreCompleto.trim()
 
       if (meters > activeEvento.radio_metros) {
         setResult({
@@ -363,10 +384,12 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
       await registrarAsistencia({
         cedula: cleanCedula,
+        email: attendeeEmail || null,
         evento_id: activeEvento.id,
         latitud: currentPosition.latitud,
         longitud: currentPosition.longitud,
         nombre_completo: participantName || null,
+        telefono: attendeePhone || null,
       })
 
       toast.success('Asistencia registrada', {
@@ -473,7 +496,23 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
               </div>
             </div>
 
-            <div className="relative order-3 grid gap-4 border-t px-4 py-6 sm:grid-cols-2 sm:px-6 lg:mt-10 lg:border-t-0 lg:px-0 lg:py-0">
+            {activeEvento.flyer_url ? (
+              <div className="relative order-3 px-4 pb-6 sm:px-6 lg:mt-8 lg:px-0 lg:pb-0">
+                <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+                  <div className="flex items-center gap-2 border-b bg-muted/35 px-3 py-2 text-xs font-medium text-muted-foreground">
+                    <ImageIcon className="size-4" />
+                    Flyer del evento
+                  </div>
+                  <img
+                    src={activeEvento.flyer_url}
+                    alt={`Flyer de ${activeEvento.nombre}`}
+                    className="max-h-[32rem] w-full bg-muted/30 object-contain"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            <div className="relative order-4 grid gap-4 border-t px-4 py-6 sm:grid-cols-2 sm:px-6 lg:mt-10 lg:border-t-0 lg:px-0 lg:py-0">
                 <div className="border-l border-[var(--institutional-line)] pl-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Building2 className="size-4 text-[var(--institutional-gold)]" />
@@ -580,6 +619,39 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
                       disabled={isNombreLocked}
                       className="h-12 text-base disabled:pointer-events-none disabled:bg-muted/65 disabled:text-foreground disabled:opacity-100"
                     />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="telefono">Telefono</Label>
+                      <div className="relative">
+                        <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="telefono"
+                          type="tel"
+                          autoComplete="tel"
+                          placeholder="Opcional"
+                          value={telefono}
+                          onChange={(event) => setTelefono(event.target.value)}
+                          className="h-12 pl-10 text-base"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Correo electronico</Label>
+                      <div className="relative">
+                        <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="Opcional"
+                          value={email}
+                          onChange={(event) => setEmail(event.target.value)}
+                          className="h-12 pl-10 text-base"
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="grid gap-3 rounded-md border bg-muted/45 p-3 text-sm sm:grid-cols-2">

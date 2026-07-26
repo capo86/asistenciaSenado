@@ -2,10 +2,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 type RegistrarAsistenciaBody = {
   cedula?: string
+  email?: string | null
   evento_id?: string
   latitud?: number
   longitud?: number
   nombre_completo?: string | null
+  telefono?: string | null
 }
 
 const corsHeaders = {
@@ -101,6 +103,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await client.rpc('asistencias_registrar', {
       p_cedula: body.cedula ?? '',
+      p_email: body.email ?? null,
       p_evento_id: assertUuid(body.evento_id),
       p_ip_address: getClientIp(req),
       p_latitud: assertNumber(
@@ -112,6 +115,7 @@ Deno.serve(async (req) => {
         'No se pudo validar la ubicacion.',
       ),
       p_nombre_completo: body.nombre_completo ?? null,
+      p_telefono: body.telefono ?? null,
     })
 
     if (error) {
