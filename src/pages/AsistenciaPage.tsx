@@ -4,7 +4,6 @@ import {
   Building2,
   CalendarDays,
   Clock3,
-  ImageIcon,
   Loader2,
   LocateFixed,
   Mail,
@@ -16,6 +15,8 @@ import {
   ShieldCheck,
   Sun,
   UserRound,
+  X,
+  ZoomIn,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -88,6 +89,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
   const [lookup, setLookup] = useState<LookupState>({ kind: 'idle' })
   const [isNombreLocked, setIsNombreLocked] = useState(false)
   const [isLookupLoading, setIsLookupLoading] = useState(false)
+  const [isFlyerViewerOpen, setIsFlyerViewerOpen] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
   const [isRemoteEventoLoading, setIsRemoteEventoLoading] = useState(false)
   const [remoteEvento, setRemoteEvento] = useState<Evento | null>(null)
@@ -186,6 +188,22 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
   const isInsideRadius =
     distance !== null && evento !== null && distance <= evento.radio_metros
+
+  useEffect(() => {
+    if (!isFlyerViewerOpen) {
+      return
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsFlyerViewerOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isFlyerViewerOpen])
 
   if (isRemoteEventoLoading) {
     return (
@@ -487,7 +505,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
                 <p className="mb-3 text-sm font-medium text-[var(--institutional-gold)]">
                   Poder Legislativo · Cámara de Senadores
                 </p>
-                <h1 className="max-w-xl break-words text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
+                <h1 className="max-w-xl break-words text-sm font-semibold leading-6 text-foreground">
                   {activeEvento.nombre}
                 </h1>
                 <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground">
@@ -498,17 +516,25 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
             {activeEvento.flyer_url ? (
               <div className="relative order-3 px-4 pb-6 sm:px-6 lg:mt-8 lg:px-0 lg:pb-0">
-                <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
-                  <div className="flex items-center gap-2 border-b bg-muted/35 px-3 py-2 text-xs font-medium text-muted-foreground">
-                    <ImageIcon className="size-4" />
-                    Flyer del evento
-                  </div>
+                <button
+                  type="button"
+                  className="group relative block w-full overflow-hidden rounded-lg border bg-card shadow-sm outline-none transition hover:border-primary/45 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  onClick={() => setIsFlyerViewerOpen(true)}
+                  aria-label={`Ampliar flyer de ${activeEvento.nombre}`}
+                  title="Ampliar flyer"
+                >
                   <img
                     src={activeEvento.flyer_url}
                     alt={`Flyer de ${activeEvento.nombre}`}
                     className="max-h-[32rem] w-full bg-muted/30 object-contain"
                   />
-                </div>
+                  <span
+                    className="absolute top-2 right-2 flex size-9 items-center justify-center rounded-md border bg-background/85 text-foreground shadow-sm backdrop-blur transition group-hover:bg-background"
+                    aria-hidden="true"
+                  >
+                    <ZoomIn className="size-4" />
+                  </span>
+                </button>
               </div>
             ) : null}
 
@@ -760,6 +786,35 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
           </section>
         </section>
       </div>
+
+      {isFlyerViewerOpen && activeEvento.flyer_url ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Flyer de ${activeEvento.nombre}`}
+          className="fixed inset-0 z-50 flex flex-col bg-background/96 p-3 text-foreground backdrop-blur sm:p-6"
+        >
+          <div className="flex justify-end pb-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => setIsFlyerViewerOpen(false)}
+              aria-label="Cerrar visor"
+              title="Cerrar visor"
+            >
+              <X />
+            </Button>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <img
+              src={activeEvento.flyer_url}
+              alt={`Flyer de ${activeEvento.nombre}`}
+              className="max-h-full w-full rounded-md object-contain shadow-2xl sm:w-auto"
+            />
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

@@ -330,6 +330,7 @@ Componentes y patrones:
 - Mapa de ubicacion en panel con OpenStreetMap/Leaflet.
 - Flyer del evento cargado en bucket `eventos-flyers` y guardado como URL publica en `evento.flyer_url`.
 - El front publico muestra el flyer debajo del titulo/descripcion en desktop y despues del formulario en mobile.
+- El flyer publico no debe mostrar el texto visible `Flyer del evento`; se abre en un visor de imagen al tocarlo.
 
 Textos importantes:
 
