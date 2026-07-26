@@ -80,6 +80,10 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, '')
+}
+
 export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
   const [cedula, setCedula] = useState('')
   const [email, setEmail] = useState('')
@@ -375,12 +379,40 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
     const attendeeEmail = email.trim().toLowerCase()
     const participantName = nombreCompleto.trim()
     const attendeePhone = telefono.trim()
+    const cleanPhone = normalizePhone(attendeePhone)
 
-    if (attendeeEmail && !isValidEmail(attendeeEmail)) {
+    if (!attendeePhone) {
+      setResult({
+        kind: 'error',
+        title: 'Telefono requerido',
+        message: 'Ingresa tu telefono para continuar.',
+      })
+      return
+    }
+
+    if (cleanPhone.length < 6) {
+      setResult({
+        kind: 'error',
+        title: 'Telefono invalido',
+        message: 'Ingresa un telefono valido. Ejemplo: 0981123456.',
+      })
+      return
+    }
+
+    if (!attendeeEmail) {
+      setResult({
+        kind: 'error',
+        title: 'Correo requerido',
+        message: 'Ingresa tu correo electronico para continuar.',
+      })
+      return
+    }
+
+    if (!isValidEmail(attendeeEmail)) {
       setResult({
         kind: 'error',
         title: 'Correo invalido',
-        message: 'Ingresa un correo valido o deja el campo vacio.',
+        message: 'Ingresa un correo valido. Ejemplo: nombre@correo.com.',
       })
       return
     }
@@ -402,12 +434,12 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
       await registrarAsistencia({
         cedula: cleanCedula,
-        email: attendeeEmail || null,
+        email: attendeeEmail,
         evento_id: activeEvento.id,
         latitud: currentPosition.latitud,
         longitud: currentPosition.longitud,
         nombre_completo: participantName || null,
-        telefono: attendeePhone || null,
+        telefono: attendeePhone,
       })
 
       toast.success('Asistencia registrada', {
@@ -649,14 +681,16 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="telefono">Telefono</Label>
+                      <Label htmlFor="telefono">Telefono *</Label>
                       <div className="relative">
                         <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           id="telefono"
                           type="tel"
                           autoComplete="tel"
-                          placeholder="Opcional"
+                          inputMode="tel"
+                          placeholder="09xxxxxxxx"
+                          required
                           value={telefono}
                           onChange={(event) => setTelefono(event.target.value)}
                           className="h-12 pl-10 text-base"
@@ -664,14 +698,15 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Correo electronico</Label>
+                      <Label htmlFor="email">Correo electronico *</Label>
                       <div className="relative">
                         <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           id="email"
                           type="email"
                           autoComplete="email"
-                          placeholder="Opcional"
+                          placeholder="nombre@correo.com"
+                          required
                           value={email}
                           onChange={(event) => setEmail(event.target.value)}
                           className="h-12 pl-10 text-base"

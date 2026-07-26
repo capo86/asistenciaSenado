@@ -148,8 +148,8 @@ Campos:
 | `evento_id` | uuid | FK a `asistencias.evento(id)` |
 | `cedula` | text | normalizada a digitos |
 | `nombre_completo` | text | viene del padron si se encuentra |
-| `telefono` | text | dato opcional cargado por el asistente |
-| `email` | text | dato opcional cargado por el asistente |
+| `telefono` | text | obligatorio desde el formulario publico |
+| `email` | text | obligatorio desde el formulario publico |
 | `latitud` | double precision | posicion del participante |
 | `longitud` | double precision | posicion del participante |
 | `distancia_metros` | numeric | calculada en servidor |
@@ -293,8 +293,9 @@ Estados:
   - Se carga `nombre_completo`.
   - Se bloquea el input de nombre para evitar edicion manual.
   - No mostrar el texto `Persona encontrada en el padron`.
-- El asistente puede cargar `telefono` y `email`; ambos son opcionales.
-- Si `email` viene informado, se valida en frontend y servidor.
+- El asistente debe cargar `telefono` y `email`; ambos son obligatorios.
+- El telefono debe tener un placeholder claro como `09xxxxxxxx`.
+- El correo se valida en frontend y servidor.
 
 ### 8.4 Duplicados por cedula
 
@@ -393,6 +394,7 @@ supabase/
     202607260003_create_registrar_asistencia_rpc.sql
     202607260004_create_asistencia_panel_rpc.sql
     202607260005_add_contact_fields_and_flyer_bucket.sql
+    202607260006_require_attendee_contact_fields.sql
 ```
 
 ## 11. Verificacion usada hasta ahora
