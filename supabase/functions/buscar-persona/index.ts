@@ -1,0 +1,132 @@
+import { createClient } from 'npm:@supabase/supabase-js@2'
+
+type PadronRow = {
+  cedula: number | string | null
+  nombre: string | null
+  apellido: string | null
+  nombre_apellido: string | null
+}
+
+type BuscarPersonaPayload = {
+  cedula?: unknown
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Origin': '*',
+}
+
+class HttpError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+    },
+    status,
+  })
+}
+
+function normalizeCedula(value: unknown) {
+  return String(value ?? '').replace(/\D/g, '')
+}
+
+function assertCedula(cedula: string) {
+  if (!/^\d{5,10}$/.test(cedula)) {
+    throw new HttpError(400, 'Ingresa una cedula valida.')
+  }
+}
+
+function createServiceClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new HttpError(500, 'El servicio no esta configurado.')
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+}
+
+function parsePerson(row: PadronRow) {
+  const nombreCompleto =
+    row.nombre_apellido?.trim() ||
+    [row.nombre, row.apellido]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(' ')
+
+  if (!row.cedula || !nombreCompleto) {
+    throw new HttpError(500, 'La respuesta del padron no tiene nombre.')
+  }
+
+  return {
+    cedula: String(row.cedula),
+    nombre: row.nombre?.trim() || null,
+    apellido: row.apellido?.trim() || null,
+    nombre_completo: nombreCompleto,
+  }
+}
+
+Deno.serve(async (request) => {
+  if (request.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    if (request.method !== 'POST') {
+      throw new HttpError(405, 'Metodo no permitido.')
+    }
+
+    const payload = (await request.json().catch(() => ({}))) as
+      BuscarPersonaPayload
+    const cedula = normalizeCedula(payload.cedula)
+    assertCedula(cedula)
+
+    const serviceClient = createServiceClient()
+    const { data, error } = await serviceClient.rpc(
+      'buscar_padron_por_cedula',
+      {
+        p_cedula: Number(cedula),
+      },
+    )
+
+    if (error) {
+      throw new HttpError(
+        500,
+        error.message || 'No se pudo consultar la cedula.',
+      )
+    }
+
+    const firstRow = Array.isArray(data)
+      ? (data[0] as PadronRow | undefined)
+      : undefined
+
+    if (!firstRow) {
+      throw new HttpError(404, 'No se encontro una persona con esa cedula.')
+    }
+
+    return jsonResponse({ data: parsePerson(firstRow) })
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return jsonResponse({ error: error.message }, error.status)
+    }
+
+    return jsonResponse({ error: 'No se pudo consultar la cedula.' }, 500)
+  }
+})
