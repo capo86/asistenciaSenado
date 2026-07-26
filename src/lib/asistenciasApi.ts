@@ -22,6 +22,7 @@ type ListarAsistenciasResponse = {
 
 type RawAsistencia = Omit<Asistencia, 'distancia_metros'> & {
   distancia_metros: number | string | null
+  fecha_local?: string | null
 }
 
 type FunctionErrorContext = {
@@ -124,6 +125,7 @@ function normalizeAsistencia(row: RawAsistencia): Asistencia {
     ...row,
     distancia_metros:
       row.distancia_metros === null ? null : Number(row.distancia_metros),
+    fecha_local: row.fecha_local ?? row.creado_en.slice(0, 10),
   }
 }
 

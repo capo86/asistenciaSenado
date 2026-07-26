@@ -5,6 +5,7 @@ export type Asistencia = {
   email: string | null
   nombre_completo: string | null
   telefono: string | null
+  fecha_local: string
   latitud: number
   longitud: number
   distancia_metros: number | null

@@ -83,6 +83,35 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
+function parseDateOnlyUtc(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+
+  return Date.UTC(year, month - 1, day)
+}
+
+function formatDateOnly(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+
+  return new Intl.DateTimeFormat('es-PY', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(Date.UTC(year, month - 1, day)))
+}
+
+function getEventoDayLabel(evento: Evento, asistencia: Asistencia) {
+  const startDate = parseDateOnlyUtc(evento.fecha_desde)
+  const asistenciaDate = parseDateOnlyUtc(asistencia.fecha_local)
+  const dayNumber =
+    Math.floor((asistenciaDate - startDate) / 86_400_000) + 1
+
+  if (!Number.isFinite(dayNumber) || dayNumber < 1) {
+    return 'Fuera de rango'
+  }
+
+  return `Dia ${dayNumber}`
+}
+
 function formatMeters(value: number | null) {
   if (value === null) {
     return 'Sin dato'
@@ -891,10 +920,11 @@ export function PanelPage() {
                   ) : null}
 
                   <div className="overflow-hidden rounded-md border">
-                    <div className="hidden border-b bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[0.9fr_1.15fr_1.3fr_0.85fr_1fr]">
+                    <div className="hidden border-b bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[0.85fr_1fr_1.15fr_0.8fr_0.75fr_1fr]">
                       <span>Cedula</span>
                       <span>Nombre</span>
                       <span>Contacto</span>
+                      <span>Dia</span>
                       <span>Distancia</span>
                       <span>Fecha</span>
                     </div>
@@ -902,7 +932,7 @@ export function PanelPage() {
                       {selectedStats.rows.map((row) => (
                         <div
                           key={row.id}
-                          className="grid gap-3 px-3 py-3 text-sm md:grid-cols-[0.9fr_1.15fr_1.3fr_0.85fr_1fr] md:items-center md:gap-2"
+                          className="grid gap-3 px-3 py-3 text-sm md:grid-cols-[0.85fr_1fr_1.15fr_0.8fr_0.75fr_1fr] md:items-center md:gap-2"
                         >
                           <div>
                             <p className="text-xs text-muted-foreground md:hidden">
@@ -934,6 +964,19 @@ export function PanelPage() {
                                 <span className="truncate">
                                   {row.email ?? 'Sin correo'}
                                 </span>
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground md:hidden">
+                              Dia
+                            </p>
+                            <div className="grid gap-1">
+                              <Badge variant="secondary">
+                                {getEventoDayLabel(evento, row)}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDateOnly(row.fecha_local)}
                               </span>
                             </div>
                           </div>

@@ -150,6 +150,7 @@ Campos:
 | `nombre_completo` | text | viene del padron si se encuentra |
 | `telefono` | text | obligatorio desde el formulario publico |
 | `email` | text | obligatorio desde el formulario publico |
+| `fecha_local` | date | dia local de Paraguay usado para validar duplicados |
 | `latitud` | double precision | posicion del participante |
 | `longitud` | double precision | posicion del participante |
 | `distancia_metros` | numeric | calculada en servidor |
@@ -160,7 +161,8 @@ Campos:
 Indice actual importante:
 
 - `idx_asistencia_cedula_creado` para consultar registros diarios por cedula.
-- El indice unico antiguo por `(evento_id, cedula)` fue eliminado para permitir hasta 2 asistencias diarias por cedula.
+- El indice unico antiguo por `(evento_id, cedula)` fue eliminado.
+- La regla vigente usa indice unico parcial `(evento_id, cedula, fecha_local)` para una asistencia valida por cedula por dia del evento.
 
 ## 6. Funciones Postgres/RPC
 
@@ -190,7 +192,7 @@ Reglas de esta funcion:
 - Calcula distancia real con `asistencias.distancia_metros`.
 - Rechaza si la persona no se encuentra dentro del radio del evento.
 - Inserta la asistencia en `asistencias.asistencia`.
-- Limita a maximo 2 asistencias validas por cedula por dia calendario de Paraguay.
+- Limita a una asistencia valida por cedula por dia del evento.
 
 ### Asistencias del panel
 
@@ -206,6 +208,16 @@ Migracion: `202607260005_add_contact_fields_and_flyer_bucket.sql`.
 - Actualiza `public.asistencias_registrar(...)` para recibir y validar esos campos.
 - Crea el bucket publico `eventos-flyers`.
 - Permite lectura publica de flyers y carga/actualizacion/borrado para usuarios autenticados.
+
+### Regla diaria de asistencia
+
+Migracion: `202607260007_one_attendance_per_event_day.sql`.
+
+- Agrega `fecha_local` a `asistencias.asistencia`.
+- Guarda la fecha local de Paraguay en cada registro.
+- Crea el indice unico parcial `uq_asistencia_evento_cedula_fecha_valida`.
+- Permite una sola asistencia valida por cedula por dia del evento.
+- Si un evento dura 3 dias, una misma cedula puede tener hasta 3 asistencias: una por cada fecha local.
 
 ## 7. Edge Functions
 
@@ -257,7 +269,7 @@ Responsabilidad:
 - Tambien recibe `telefono` y `email`.
 - Captura IP desde headers.
 - Llama a `public.asistencias_registrar(...)`.
-- Devuelve 429 cuando se alcanza el limite diario.
+- Devuelve 429 cuando se intenta duplicar el registro diario.
 - Tiene CORS para `POST` y `OPTIONS`.
 
 ## 8. Reglas de negocio actuales
@@ -301,9 +313,10 @@ Estados:
 
 Regla vigente:
 
-- Una misma cedula puede registrar como maximo 2 asistencias validas por dia calendario de Paraguay.
-- La tercera asistencia valida del dia debe ser rechazada con HTTP 429 desde Edge Function.
-- El conteo se hace del lado servidor contra `asistencias.asistencia`.
+- Una misma cedula puede registrar como maximo una asistencia valida por dia del evento.
+- Si el evento dura varios dias, la misma cedula puede registrar una vez por cada `fecha_local`.
+- El segundo registro del mismo evento, cedula y dia debe rechazarse.
+- La grilla del panel debe mostrar el dia del evento para cada asistencia.
 
 ### 8.5 Escrituras sensibles
 
@@ -395,6 +408,7 @@ supabase/
     202607260004_create_asistencia_panel_rpc.sql
     202607260005_add_contact_fields_and_flyer_bucket.sql
     202607260006_require_attendee_contact_fields.sql
+    202607260007_one_attendance_per_event_day.sql
 ```
 
 ## 11. Verificacion usada hasta ahora
@@ -417,6 +431,7 @@ Tambien se verifico que:
 
 - Las RPC `public.asistencias_registrar` y `public.asistencias_list_panel` existen.
 - El bucket `eventos-flyers` existe, es publico y acepta PNG/JPG/WebP hasta 5 MB.
+- La regla actual de duplicados es una asistencia por evento, cedula y `fecha_local`.
 - La Edge Function `registrar-asistencia` responde correctamente cuando el evento no existe.
 - El puerto local de Vite usado durante desarrollo fue `http://localhost:5173`.
 
@@ -438,7 +453,6 @@ Tambien se verifico que:
 ## 13. Pendientes o decisiones futuras
 
 - Confirmar politica final de autenticacion del panel si se agregan mas roles.
-- Definir si el limite de 2 asistencias diarias representa entrada/salida o dos registros generales.
 - Evaluar si conviene agregar auditoria de intentos fuera del local en `rate_limit_intento` u otra tabla.
 - Generar tipos de Supabase con `supabase gen types typescript` cuando el modelo se estabilice.
 - Evaluar code splitting si el warning de chunk mayor a 500 kB pasa a ser importante para produccion.

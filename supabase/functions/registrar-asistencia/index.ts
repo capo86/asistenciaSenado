@@ -125,7 +125,11 @@ Deno.serve(async (req) => {
     return jsonResponse(data)
   } catch (error) {
     const message = getErrorMessage(error)
-    const status = message.includes('limite diario') ? 429 : 400
+    const status =
+      message.includes('limite diario') ||
+      message.includes('registro asistencia hoy')
+        ? 429
+        : 400
 
     return jsonResponse({ error: message }, status)
   }
