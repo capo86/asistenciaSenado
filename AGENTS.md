@@ -8,6 +8,7 @@ Aplicacion web institucional para registrar asistencias a eventos de la Academia
 
 - Front publico mobile first para que el participante ingrese cedula, busque su nombre en el padron, valide ubicacion y registre asistencia.
 - Ruta publica por evento: `/evento/:eventoId`.
+- Ruta publica sin ID: `/evento`, que intenta cargar el evento activo del dia.
 - Ruta publica fallback `/`, que intenta cargar el evento activo del dia.
 - Panel interno en `/panel`, sin usar la palabra `admin` en rutas o textos visibles.
 - CRUD basico de eventos desde el panel.
@@ -71,7 +72,13 @@ Definidas en `src/App.tsx`:
 
 - `/panel`: acceso al panel interno.
 - `/evento/:eventoId`: formulario publico atado a un evento especifico.
+- `/evento`: formulario publico que carga el evento activo actual.
 - `/`: formulario publico que carga el evento activo actual.
+
+Deploy en Vercel:
+
+- `vercel.json` contiene un rewrite catch-all hacia `/index.html`.
+- No quitar ese rewrite: permite entrar directo a rutas como `/evento`, `/evento/:eventoId` y `/panel` sin recibir 404 de Vercel.
 
 Paginas principales:
 
@@ -356,6 +363,7 @@ src/
     asistencia.ts
     evento.ts
     persona.ts
+vercel.json
 supabase/
   functions/
     buscar-persona/

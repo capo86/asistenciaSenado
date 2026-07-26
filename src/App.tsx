@@ -20,6 +20,9 @@ function App() {
         <Route path="/evento/:eventoId">
           {(params) => <AsistenciaPage eventoId={params.eventoId} />}
         </Route>
+        <Route path="/evento">
+          <AsistenciaPage />
+        </Route>
         <Route>
           <AsistenciaPage />
         </Route>
