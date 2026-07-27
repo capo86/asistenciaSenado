@@ -223,10 +223,17 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
         <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(180deg,var(--institutional-panel)_0%,var(--background)_46%)]" />
         <section className="relative mx-auto flex min-h-screen w-full max-w-xl items-center justify-center px-4">
           <Card className="w-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Loader2 className="size-5 animate-spin text-[var(--institutional-gold)]" />
+            <CardHeader className="items-center text-center">
+              <div className="mb-3 flex size-16 items-center justify-center rounded-md border bg-white shadow-sm">
+                <img
+                  src={academiaLogo}
+                  alt="Academia Legislativa Instituto Superior"
+                  className="h-12 w-12 object-contain"
+                />
+              </div>
+              <CardTitle className="flex items-center justify-center gap-2">
                 Cargando evento
+                <Loader2 className="size-5 animate-spin text-[var(--institutional-gold)]" />
               </CardTitle>
               <CardDescription>
                 Estamos preparando los datos de la actividad.
