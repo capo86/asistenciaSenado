@@ -51,6 +51,7 @@ import {
   obtenerEventoActualPublico,
   obtenerEventoPublico,
 } from '@/lib/eventosApi'
+import { getAttendanceDeviceId } from '@/lib/deviceIdentity'
 import { haversineDistanceMeters } from '@/lib/geo'
 import { buscarPersonaPorCedula } from '@/lib/personasApi'
 import { isDataServiceConfigured } from '@/lib/supabaseClient'
@@ -71,6 +72,11 @@ type LookupState =
   | { kind: 'idle' }
   | { kind: 'success' }
   | { kind: 'error'; message: string }
+
+type StoredContactState = {
+  emailMask: string | null
+  telefonoMask: string | null
+}
 
 function normalizeCedula(value: string) {
   return value.replace(/\D/g, '')
@@ -95,6 +101,8 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
   const [isLookupLoading, setIsLookupLoading] = useState(false)
   const [isFlyerViewerOpen, setIsFlyerViewerOpen] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
+  const [storedContact, setStoredContact] =
+    useState<StoredContactState | null>(null)
   const [isRemoteEventoLoading, setIsRemoteEventoLoading] = useState(false)
   const [remoteEvento, setRemoteEvento] = useState<Evento | null>(null)
   const [remoteEventoError, setRemoteEventoError] = useState<string | null>(null)
@@ -307,6 +315,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
     setCedula(value)
     setLookup({ kind: 'idle' })
     setIsNombreLocked(false)
+    setStoredContact(null)
   }
 
   async function handleBuscarPersona() {
@@ -332,12 +341,26 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
     setIsLookupLoading(true)
     setLookup({ kind: 'idle' })
     setIsNombreLocked(false)
+    setStoredContact(null)
 
     try {
-      const persona = await buscarPersonaPorCedula(cleanCedula)
+      const persona = await buscarPersonaPorCedula(
+        cleanCedula,
+        activeEvento.id,
+      )
 
       setCedula(persona.cedula)
       setNombreCompleto(persona.nombre_completo)
+
+      if (persona.contacto?.registrado) {
+        setStoredContact({
+          emailMask: persona.contacto.email_mask,
+          telefonoMask: persona.contacto.telefono_mask,
+        })
+        setEmail('')
+        setTelefono('')
+      }
+
       setLookup({ kind: 'success' })
       setIsNombreLocked(true)
     } catch (caughtError) {
@@ -380,8 +403,9 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
     const participantName = nombreCompleto.trim()
     const attendeePhone = telefono.trim()
     const cleanPhone = normalizePhone(attendeePhone)
+    const shouldReuseContact = storedContact !== null
 
-    if (!attendeePhone) {
+    if (!shouldReuseContact && !attendeePhone) {
       setResult({
         kind: 'error',
         title: 'Telefono requerido',
@@ -390,7 +414,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
       return
     }
 
-    if (cleanPhone.length < 6) {
+    if (!shouldReuseContact && cleanPhone.length < 6) {
       setResult({
         kind: 'error',
         title: 'Telefono invalido',
@@ -399,7 +423,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
       return
     }
 
-    if (!attendeeEmail) {
+    if (!shouldReuseContact && !attendeeEmail) {
       setResult({
         kind: 'error',
         title: 'Correo requerido',
@@ -408,7 +432,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
       return
     }
 
-    if (!isValidEmail(attendeeEmail)) {
+    if (!shouldReuseContact && !isValidEmail(attendeeEmail)) {
       setResult({
         kind: 'error',
         title: 'Correo invalido',
@@ -434,12 +458,15 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
       await registrarAsistencia({
         cedula: cleanCedula,
-        email: attendeeEmail,
+        device_id: getAttendanceDeviceId(),
+        email: shouldReuseContact ? null : attendeeEmail,
         evento_id: activeEvento.id,
         latitud: currentPosition.latitud,
         longitud: currentPosition.longitud,
         nombre_completo: participantName || null,
-        telefono: attendeePhone,
+        telefono: shouldReuseContact ? null : attendeePhone,
+        user_agent:
+          typeof navigator === 'undefined' ? null : navigator.userAgent,
       })
 
       toast.success('Asistencia registrada', {
@@ -679,41 +706,66 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
                     />
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="telefono">Telefono *</Label>
-                      <div className="relative">
-                        <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          id="telefono"
-                          type="tel"
-                          autoComplete="tel"
-                          inputMode="tel"
-                          placeholder="09xxxxxxxx"
-                          required
-                          value={telefono}
-                          onChange={(event) => setTelefono(event.target.value)}
-                          className="h-12 pl-10 text-base"
-                        />
+                  {storedContact ? (
+                    <div className="rounded-md border bg-muted/35 p-3 text-sm">
+                      <div className="flex items-center gap-2 font-medium">
+                        <BadgeCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        Datos de contacto ya registrados
+                      </div>
+                      <div className="mt-3 grid gap-2 text-muted-foreground sm:grid-cols-2">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Phone className="size-4 shrink-0" />
+                          <span className="truncate">
+                            {storedContact.telefonoMask ?? 'Telefono guardado'}
+                          </span>
+                        </span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Mail className="size-4 shrink-0" />
+                          <span className="truncate">
+                            {storedContact.emailMask ?? 'Correo guardado'}
+                          </span>
+                        </span>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Correo electronico *</Label>
-                      <div className="relative">
-                        <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          id="email"
-                          type="email"
-                          autoComplete="email"
-                          placeholder="nombre@correo.com"
-                          required
-                          value={email}
-                          onChange={(event) => setEmail(event.target.value)}
-                          className="h-12 pl-10 text-base"
-                        />
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="telefono">Telefono *</Label>
+                        <div className="relative">
+                          <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="telefono"
+                            type="tel"
+                            autoComplete="tel"
+                            inputMode="tel"
+                            placeholder="09xxxxxxxx"
+                            required
+                            value={telefono}
+                            onChange={(event) =>
+                              setTelefono(event.target.value)
+                            }
+                            className="h-12 pl-10 text-base"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Correo electronico *</Label>
+                        <div className="relative">
+                          <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="email"
+                            type="email"
+                            autoComplete="email"
+                            placeholder="nombre@correo.com"
+                            required
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            className="h-12 pl-10 text-base"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="grid gap-3 rounded-md border bg-muted/45 p-3 text-sm sm:grid-cols-2">
                     <div>

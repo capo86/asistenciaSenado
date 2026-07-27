@@ -151,6 +151,8 @@ Campos:
 | `telefono` | text | obligatorio desde el formulario publico |
 | `email` | text | obligatorio desde el formulario publico |
 | `fecha_local` | date | dia local de Paraguay usado para validar duplicados |
+| `device_id` | text | identificador anonimo persistido en el navegador |
+| `user_agent` | text | user agent acotado para auditoria |
 | `latitud` | double precision | posicion del participante |
 | `longitud` | double precision | posicion del participante |
 | `distancia_metros` | numeric | calculada en servidor |
@@ -163,6 +165,7 @@ Indice actual importante:
 - `idx_asistencia_cedula_creado` para consultar registros diarios por cedula.
 - El indice unico antiguo por `(evento_id, cedula)` fue eliminado.
 - La regla vigente usa indice unico parcial `(evento_id, cedula, fecha_local)` para una asistencia valida por cedula por dia del evento.
+- Tambien existe indice unico parcial `(evento_id, device_id, fecha_local)` para bloquear varias cedulas desde el mismo dispositivo en el mismo dia.
 
 ## 6. Funciones Postgres/RPC
 
@@ -219,6 +222,17 @@ Migracion: `202607260007_one_attendance_per_event_day.sql`.
 - Permite una sola asistencia valida por cedula por dia del evento.
 - Si un evento dura 3 dias, una misma cedula puede tener hasta 3 asistencias: una por cada fecha local.
 
+### Reutilizacion de contacto y control por dispositivo
+
+Migracion: `202607260008_reuse_contact_and_device_guard.sql`.
+
+- Agrega `device_id` y `user_agent` a `asistencias.asistencia`.
+- Crea `public.asistencias_contacto_resumen(p_evento_id, p_cedula)`.
+- La busqueda de cedula puede devolver si ya existe contacto interno para esa cedula/evento, solo con telefono/email enmascarados.
+- `public.asistencias_registrar(...)` reutiliza telefono/email previos de la misma cedula/evento si el cliente los envia vacios.
+- Exige `device_id` en el registro.
+- Bloquea que un mismo `device_id` registre mas de una cedula valida por evento y dia.
+
 ## 7. Edge Functions
 
 Las funciones estan en `supabase/functions`.
@@ -267,9 +281,11 @@ Responsabilidad:
 
 - Recibe `evento_id`, `cedula`, `nombre_completo`, `latitud`, `longitud`.
 - Tambien recibe `telefono` y `email`.
+- Tambien recibe `device_id` y `user_agent`.
 - Captura IP desde headers.
 - Llama a `public.asistencias_registrar(...)`.
 - Devuelve 429 cuando se intenta duplicar el registro diario.
+- Devuelve 429 cuando un mismo dispositivo intenta registrar otra cedula el mismo dia.
 - Tiene CORS para `POST` y `OPTIONS`.
 
 ## 8. Reglas de negocio actuales
@@ -308,6 +324,8 @@ Estados:
 - El asistente debe cargar `telefono` y `email`; ambos son obligatorios.
 - El telefono debe tener un placeholder claro como `09xxxxxxxx`.
 - El correo se valida en frontend y servidor.
+- Si una cedula ya registro contacto en el mismo evento, el dia siguiente el front no debe pedir telefono/correo completos.
+- En ese caso solo se muestran datos enmascarados y el servidor reutiliza los valores guardados.
 
 ### 8.4 Duplicados por cedula
 
@@ -316,6 +334,7 @@ Regla vigente:
 - Una misma cedula puede registrar como maximo una asistencia valida por dia del evento.
 - Si el evento dura varios dias, la misma cedula puede registrar una vez por cada `fecha_local`.
 - El segundo registro del mismo evento, cedula y dia debe rechazarse.
+- Un mismo `device_id` solo puede registrar una cedula valida por evento y dia.
 - La grilla del panel debe mostrar el dia del evento para cada asistencia.
 
 ### 8.5 Escrituras sensibles
@@ -409,6 +428,7 @@ supabase/
     202607260005_add_contact_fields_and_flyer_bucket.sql
     202607260006_require_attendee_contact_fields.sql
     202607260007_one_attendance_per_event_day.sql
+    202607260008_reuse_contact_and_device_guard.sql
 ```
 
 ## 11. Verificacion usada hasta ahora
@@ -432,6 +452,7 @@ Tambien se verifico que:
 - Las RPC `public.asistencias_registrar` y `public.asistencias_list_panel` existen.
 - El bucket `eventos-flyers` existe, es publico y acepta PNG/JPG/WebP hasta 5 MB.
 - La regla actual de duplicados es una asistencia por evento, cedula y `fecha_local`.
+- El control antifraude actual bloquea otra cedula desde el mismo `device_id` por evento y dia.
 - La Edge Function `registrar-asistencia` responde correctamente cuando el evento no existe.
 - El puerto local de Vite usado durante desarrollo fue `http://localhost:5173`.
 

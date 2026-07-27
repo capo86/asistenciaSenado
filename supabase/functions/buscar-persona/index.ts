@@ -9,6 +9,13 @@ type PadronRow = {
 
 type BuscarPersonaPayload = {
   cedula?: unknown
+  evento_id?: unknown
+}
+
+type ContactoResumen = {
+  email_mask: string | null
+  registrado: boolean
+  telefono_mask: string | null
 }
 
 const corsHeaders = {
@@ -47,6 +54,15 @@ function assertCedula(cedula: string) {
   }
 }
 
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  )
+}
+
 function createServiceClient() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -80,6 +96,40 @@ function parsePerson(row: PadronRow) {
     nombre: row.nombre?.trim() || null,
     apellido: row.apellido?.trim() || null,
     nombre_completo: nombreCompleto,
+  }
+}
+
+async function getContactoResumen(
+  serviceClient: ReturnType<typeof createServiceClient>,
+  eventoId: unknown,
+  cedula: string,
+) {
+  if (!isUuid(eventoId)) {
+    return null
+  }
+
+  const { data, error } = await serviceClient.rpc(
+    'asistencias_contacto_resumen',
+    {
+      p_cedula: cedula,
+      p_evento_id: eventoId,
+    },
+  )
+
+  if (error || !data || typeof data !== 'object') {
+    return null
+  }
+
+  const resumen = data as ContactoResumen
+
+  return {
+    email_mask:
+      typeof resumen.email_mask === 'string' ? resumen.email_mask : null,
+    registrado: resumen.registrado === true,
+    telefono_mask:
+      typeof resumen.telefono_mask === 'string'
+        ? resumen.telefono_mask
+        : null,
   }
 }
 
@@ -121,7 +171,16 @@ Deno.serve(async (request) => {
       throw new HttpError(404, 'No se encontro una persona con esa cedula.')
     }
 
-    return jsonResponse({ data: parsePerson(firstRow) })
+    return jsonResponse({
+      data: {
+        ...parsePerson(firstRow),
+        contacto: await getContactoResumen(
+          serviceClient,
+          payload.evento_id,
+          cedula,
+        ),
+      },
+    })
   } catch (error) {
     if (error instanceof HttpError) {
       return jsonResponse({ error: error.message }, error.status)

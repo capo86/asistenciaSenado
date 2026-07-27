@@ -2,6 +2,7 @@ export type Asistencia = {
   id: string
   evento_id: string
   cedula: string
+  device_id: string | null
   email: string | null
   nombre_completo: string | null
   telefono: string | null
@@ -11,5 +12,6 @@ export type Asistencia = {
   distancia_metros: number | null
   dentro_del_cuadrante: boolean
   ip_address: string | null
+  user_agent: string | null
   creado_en: string
 }

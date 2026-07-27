@@ -84,7 +84,7 @@ async function readFunctionErrorMessage(context: unknown) {
   return null
 }
 
-export async function buscarPersonaPorCedula(cedula: string) {
+export async function buscarPersonaPorCedula(cedula: string, eventoId?: string) {
   if (!supabase) {
     throw new Error('Servicio no disponible.')
   }
@@ -99,6 +99,7 @@ export async function buscarPersonaPorCedula(cedula: string) {
     await supabase.functions.invoke<BuscarPersonaResponse>('buscar-persona', {
       body: {
         cedula: normalizedCedula,
+        evento_id: eventoId,
       },
     })
 

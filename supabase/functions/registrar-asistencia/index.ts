@@ -2,12 +2,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 type RegistrarAsistenciaBody = {
   cedula?: string
+  device_id?: string | null
   email?: string | null
   evento_id?: string
   latitud?: number
   longitud?: number
   nombre_completo?: string | null
   telefono?: string | null
+  user_agent?: string | null
 }
 
 const corsHeaders = {
@@ -103,6 +105,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await client.rpc('asistencias_registrar', {
       p_cedula: body.cedula ?? '',
+      p_device_id: body.device_id ?? null,
       p_email: body.email ?? null,
       p_evento_id: assertUuid(body.evento_id),
       p_ip_address: getClientIp(req),
@@ -116,6 +119,7 @@ Deno.serve(async (req) => {
       ),
       p_nombre_completo: body.nombre_completo ?? null,
       p_telefono: body.telefono ?? null,
+      p_user_agent: body.user_agent ?? req.headers.get('user-agent'),
     })
 
     if (error) {
@@ -127,7 +131,8 @@ Deno.serve(async (req) => {
     const message = getErrorMessage(error)
     const status =
       message.includes('limite diario') ||
-      message.includes('registro asistencia hoy')
+      message.includes('registro asistencia hoy') ||
+      message.includes('dispositivo ya registro')
         ? 429
         : 400
 

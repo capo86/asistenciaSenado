@@ -3,12 +3,14 @@ import type { Asistencia } from '@/types/asistencia'
 
 type RegistrarAsistenciaInput = {
   cedula: string
-  email: string
+  device_id: string
+  email: string | null
   evento_id: string
   latitud: number
   longitud: number
   nombre_completo: string | null
-  telefono: string
+  telefono: string | null
+  user_agent: string | null
 }
 
 type RegistrarAsistenciaResponse = {
