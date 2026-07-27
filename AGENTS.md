@@ -268,6 +268,7 @@ Responsabilidad:
 - Usa `SUPABASE_SERVICE_ROLE_KEY`.
 - Llama a `public.buscar_padron_por_cedula(p_cedula)`.
 - Devuelve `cedula`, `nombre`, `apellido`, `nombre_completo`, `departamento`, `distrito`.
+- Para `distrito`, usar `distrito_descripcion` del padron cuando este disponible; `distrito` puede venir como codigo.
 
 Importante:
 

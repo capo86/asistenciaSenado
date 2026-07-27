@@ -1,12 +1,13 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 type PadronRow = {
-  cedula: number | string | null
-  departamento?: string | null
-  distrito?: string | null
-  nombre: string | null
-  apellido: string | null
-  nombre_apellido: string | null
+  apellido?: unknown
+  cedula?: unknown
+  departamento?: unknown
+  distrito?: unknown
+  distrito_descripcion?: unknown
+  nombre?: unknown
+  nombre_apellido?: unknown
 }
 
 type BuscarPersonaPayload = {
@@ -50,6 +51,12 @@ function normalizeCedula(value: unknown) {
   return String(value ?? '').replace(/\D/g, '')
 }
 
+function cleanOptionalText(value: unknown) {
+  const text = String(value ?? '').trim()
+
+  return text || null
+}
+
 function assertCedula(cedula: string) {
   if (!/^\d{5,10}$/.test(cedula)) {
     throw new HttpError(400, 'Ingresa una cedula valida.')
@@ -82,23 +89,27 @@ function createServiceClient() {
 }
 
 function parsePerson(row: PadronRow) {
+  const nombre = cleanOptionalText(row.nombre)
+  const apellido = cleanOptionalText(row.apellido)
   const nombreCompleto =
-    row.nombre_apellido?.trim() ||
-    [row.nombre, row.apellido]
-      .map((part) => part?.trim())
+    cleanOptionalText(row.nombre_apellido) ||
+    [nombre, apellido]
       .filter(Boolean)
       .join(' ')
+  const cedula = cleanOptionalText(row.cedula)
 
-  if (!row.cedula || !nombreCompleto) {
+  if (!cedula || !nombreCompleto) {
     throw new HttpError(500, 'La respuesta del padron no tiene nombre.')
   }
 
   return {
-    cedula: String(row.cedula),
-    apellido: row.apellido?.trim() || null,
-    departamento: row.departamento?.trim() || null,
-    distrito: row.distrito?.trim() || null,
-    nombre: row.nombre?.trim() || null,
+    cedula,
+    apellido,
+    departamento: cleanOptionalText(row.departamento),
+    distrito:
+      cleanOptionalText(row.distrito_descripcion) ||
+      cleanOptionalText(row.distrito),
+    nombre,
     nombre_completo: nombreCompleto,
   }
 }
