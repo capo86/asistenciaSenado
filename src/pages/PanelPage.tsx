@@ -184,6 +184,8 @@ function buildAsistenciasSheet(evento: Evento, rows: Asistencia[]): SheetData {
       headerCell('Fecha y hora registro'),
       headerCell('Cedula'),
       headerCell('Nombre completo'),
+      headerCell('Departamento'),
+      headerCell('Distrito'),
       headerCell('Telefono'),
       headerCell('Correo electronico'),
       headerCell('Dentro del local'),
@@ -211,6 +213,8 @@ function buildAsistenciasSheet(evento: Evento, rows: Asistencia[]): SheetData {
       textCell(formatDateTime(row.creado_en)),
       textCell(row.cedula),
       textCell(row.nombre_completo),
+      textCell(row.departamento),
+      textCell(row.distrito),
       textCell(row.telefono),
       textCell(row.email),
       textCell(row.dentro_del_cuadrante ? 'Si' : 'No'),
@@ -241,6 +245,8 @@ const asistenciaExportColumns = [
   { width: 22 },
   { width: 14 },
   { width: 32 },
+  { width: 24 },
+  { width: 24 },
   { width: 18 },
   { width: 30 },
   { width: 16 },
@@ -1150,6 +1156,10 @@ export function PanelPage() {
                             </p>
                             <p className="truncate text-muted-foreground">
                               {row.nombre_completo ?? 'Sin nombre'}
+                            </p>
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {row.departamento ?? 'Sin departamento'} ·{' '}
+                              {row.distrito ?? 'Sin distrito'}
                             </p>
                           </div>
                           <div>

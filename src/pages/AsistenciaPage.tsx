@@ -78,6 +78,11 @@ type StoredContactState = {
   telefonoMask: string | null
 }
 
+type PadronLocationState = {
+  departamento: string | null
+  distrito: string | null
+}
+
 function normalizeCedula(value: string) {
   return value.replace(/\D/g, '')
 }
@@ -101,6 +106,8 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
   const [isLookupLoading, setIsLookupLoading] = useState(false)
   const [isFlyerViewerOpen, setIsFlyerViewerOpen] = useState(false)
   const [isRegistering, setIsRegistering] = useState(false)
+  const [padronLocation, setPadronLocation] =
+    useState<PadronLocationState | null>(null)
   const [storedContact, setStoredContact] =
     useState<StoredContactState | null>(null)
   const [isRemoteEventoLoading, setIsRemoteEventoLoading] = useState(false)
@@ -322,6 +329,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
     setCedula(value)
     setLookup({ kind: 'idle' })
     setIsNombreLocked(false)
+    setPadronLocation(null)
     setStoredContact(null)
   }
 
@@ -348,6 +356,7 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
     setIsLookupLoading(true)
     setLookup({ kind: 'idle' })
     setIsNombreLocked(false)
+    setPadronLocation(null)
     setStoredContact(null)
 
     try {
@@ -358,6 +367,10 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
       setCedula(persona.cedula)
       setNombreCompleto(persona.nombre_completo)
+      setPadronLocation({
+        departamento: persona.departamento,
+        distrito: persona.distrito,
+      })
 
       if (persona.contacto?.registrado) {
         setStoredContact({
@@ -465,7 +478,9 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
 
       await registrarAsistencia({
         cedula: cleanCedula,
+        departamento: padronLocation?.departamento ?? null,
         device_id: getAttendanceDeviceId(),
+        distrito: padronLocation?.distrito ?? null,
         email: shouldReuseContact ? null : attendeeEmail,
         evento_id: activeEvento.id,
         latitud: currentPosition.latitud,
@@ -712,6 +727,29 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
                       className="h-12 text-base disabled:pointer-events-none disabled:bg-muted/65 disabled:text-foreground disabled:opacity-100"
                     />
                   </div>
+
+                  {lookup.kind === 'success' && padronLocation ? (
+                    <div className="grid gap-3 rounded-md border bg-muted/35 p-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="size-4 text-[var(--institutional-gold)]" />
+                          Departamento
+                        </p>
+                        <p className="mt-1 font-medium">
+                          {padronLocation.departamento ?? 'Sin dato'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="flex items-center gap-2 text-muted-foreground">
+                          <Building2 className="size-4 text-[var(--institutional-gold)]" />
+                          Distrito
+                        </p>
+                        <p className="mt-1 font-medium">
+                          {padronLocation.distrito ?? 'Sin dato'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {storedContact ? (
                     <div className="rounded-md border bg-muted/35 p-3 text-sm">

@@ -2,7 +2,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 type RegistrarAsistenciaBody = {
   cedula?: string
+  departamento?: string | null
   device_id?: string | null
+  distrito?: string | null
   email?: string | null
   evento_id?: string
   latitud?: number
@@ -105,7 +107,9 @@ Deno.serve(async (req) => {
 
     const { data, error } = await client.rpc('asistencias_registrar', {
       p_cedula: body.cedula ?? '',
+      p_departamento: body.departamento ?? null,
       p_device_id: body.device_id ?? null,
+      p_distrito: body.distrito ?? null,
       p_email: body.email ?? null,
       p_evento_id: assertUuid(body.evento_id),
       p_ip_address: getClientIp(req),

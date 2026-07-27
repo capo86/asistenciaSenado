@@ -16,6 +16,7 @@ Aplicacion web institucional para registrar asistencias a eventos de la Academia
 - Listado de asistencias reales del evento seleccionado.
 - Filtro de asistencias por cedula en el panel.
 - Exportacion Excel `.xlsx` de asistencias con columnas separadas.
+- Snapshot de departamento y distrito del padron en cada asistencia.
 - Generacion de QR por evento, con opcion de copiar, descargar y compartir.
 - Mapa OpenStreetMap en el panel para marcar visualmente latitud/longitud del evento.
 - Carga de flyer por evento en Storage y visualizacion del flyer en el front publico.
@@ -94,14 +95,14 @@ Paginas principales:
 Panel de asistencias:
 
 - El filtro por cedula debe aplicarse a la grilla y al Excel exportado.
-- El Excel debe mantener columnas separadas para asistencia ID, evento, fechas, dia del evento, cedula, nombre, telefono, correo, ubicacion, distancia, IP, dispositivo y user agent.
+- El Excel debe mantener columnas separadas para asistencia ID, evento, fechas, dia del evento, cedula, nombre, departamento, distrito, telefono, correo, ubicacion, distancia, IP, dispositivo y user agent.
 - No cargar la libreria de Excel en el bundle inicial; usar import dinamico.
 
 En mobile, el orden del front publico debe mantenerse asi:
 
 1. Estado, titulo y descripcion del evento.
 2. Formulario de registro de asistencia.
-3. Datos del evento: lugar, radio, fecha y horario.
+3. Datos del evento: lugar, direccion, fecha y horario.
 
 ## 5. Modelo de datos actual
 
@@ -157,6 +158,8 @@ Campos:
 | `evento_id` | uuid | FK a `asistencias.evento(id)` |
 | `cedula` | text | normalizada a digitos |
 | `nombre_completo` | text | viene del padron si se encuentra |
+| `departamento` | text | snapshot del padron al registrar |
+| `distrito` | text | snapshot del padron al registrar |
 | `telefono` | text | obligatorio desde el formulario publico |
 | `email` | text | obligatorio desde el formulario publico |
 | `fecha_local` | date | dia local de Paraguay usado para validar duplicados |
@@ -242,6 +245,14 @@ Migracion: `202607260008_reuse_contact_and_device_guard.sql`.
 - Exige `device_id` en el registro.
 - Bloquea que un mismo `device_id` registre mas de una cedula valida por evento y dia.
 
+### Departamento y distrito del padron
+
+Migracion: `202607270001_add_departamento_distrito_to_asistencia.sql`.
+
+- Agrega `departamento` y `distrito` a `asistencias.asistencia`.
+- Actualiza `public.asistencias_registrar(...)` para recibir esos campos como parametros opcionales al final.
+- Guarda esos valores como snapshot de la informacion padronal al momento de registrar.
+
 ## 7. Edge Functions
 
 Las funciones estan en `supabase/functions`.
@@ -256,7 +267,7 @@ Responsabilidad:
 - Normaliza y valida formato.
 - Usa `SUPABASE_SERVICE_ROLE_KEY`.
 - Llama a `public.buscar_padron_por_cedula(p_cedula)`.
-- Devuelve `cedula`, `nombre`, `apellido`, `nombre_completo`.
+- Devuelve `cedula`, `nombre`, `apellido`, `nombre_completo`, `departamento`, `distrito`.
 
 Importante:
 
@@ -290,6 +301,7 @@ Responsabilidad:
 
 - Recibe `evento_id`, `cedula`, `nombre_completo`, `latitud`, `longitud`.
 - Tambien recibe `telefono` y `email`.
+- Tambien recibe `departamento` y `distrito` como snapshot del padron.
 - Tambien recibe `device_id` y `user_agent`.
 - Captura IP desde headers.
 - Llama a `public.asistencias_registrar(...)`.
@@ -328,6 +340,7 @@ Estados:
 - No escribir directo desde el cliente contra el padron.
 - Al encontrar una persona:
   - Se carga `nombre_completo`.
+  - Se muestran `departamento` y `distrito` debajo del nombre.
   - Se bloquea el input de nombre para evitar edicion manual.
   - No mostrar el texto `Persona encontrada en el padron`.
 - El asistente debe cargar `telefono` y `email`; ambos son obligatorios.
@@ -438,6 +451,7 @@ supabase/
     202607260006_require_attendee_contact_fields.sql
     202607260007_one_attendance_per_event_day.sql
     202607260008_reuse_contact_and_device_guard.sql
+    202607270001_add_departamento_distrito_to_asistencia.sql
 ```
 
 ## 11. Verificacion usada hasta ahora
@@ -462,6 +476,8 @@ Tambien se verifico que:
 - El bucket `eventos-flyers` existe, es publico y acepta PNG/JPG/WebP hasta 5 MB.
 - La regla actual de duplicados es una asistencia por evento, cedula y `fecha_local`.
 - El control antifraude actual bloquea otra cedula desde el mismo `device_id` por evento y dia.
+- La tabla `asistencias.asistencia` contiene `departamento` y `distrito`.
+- La RPC `public.asistencias_registrar` acepta `p_departamento` y `p_distrito`.
 - La Edge Function `registrar-asistencia` responde correctamente cuando el evento no existe.
 - El puerto local de Vite usado durante desarrollo fue `http://localhost:5173`.
 

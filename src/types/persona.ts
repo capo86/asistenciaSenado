@@ -7,5 +7,7 @@ export type Persona = {
   } | null
   nombre: string | null
   apellido: string | null
+  departamento: string | null
+  distrito: string | null
   nombre_completo: string
 }

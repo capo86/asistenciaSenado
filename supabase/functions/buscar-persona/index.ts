@@ -2,6 +2,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 
 type PadronRow = {
   cedula: number | string | null
+  departamento?: string | null
+  distrito?: string | null
   nombre: string | null
   apellido: string | null
   nombre_apellido: string | null
@@ -93,8 +95,10 @@ function parsePerson(row: PadronRow) {
 
   return {
     cedula: String(row.cedula),
-    nombre: row.nombre?.trim() || null,
     apellido: row.apellido?.trim() || null,
+    departamento: row.departamento?.trim() || null,
+    distrito: row.distrito?.trim() || null,
+    nombre: row.nombre?.trim() || null,
     nombre_completo: nombreCompleto,
   }
 }

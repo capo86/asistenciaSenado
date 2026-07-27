@@ -2,7 +2,9 @@ export type Asistencia = {
   id: string
   evento_id: string
   cedula: string
+  departamento: string | null
   device_id: string | null
+  distrito: string | null
   email: string | null
   nombre_completo: string | null
   telefono: string | null
