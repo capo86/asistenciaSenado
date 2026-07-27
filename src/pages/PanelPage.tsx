@@ -4,6 +4,7 @@ import {
   type ChangeEvent,
   type FormEvent,
   useEffect,
+  useMemo,
   useState,
 } from 'react'
 import {
@@ -69,6 +70,7 @@ import {
 import { useSessionStore } from '@/stores/sessionStore'
 import type { Asistencia } from '@/types/asistencia'
 import type { Evento, EventoEstado } from '@/types/evento'
+import type { SheetData } from 'write-excel-file/browser'
 
 const EventLocationMap = lazy(() =>
   import('@/components/panel/EventLocationMap').then((module) => ({
@@ -120,6 +122,136 @@ function formatMeters(value: number | null) {
   return `${Math.round(value)} m`
 }
 
+function normalizeCedulaFilter(value: string) {
+  return value.replace(/\D/g, '')
+}
+
+function sanitizeFileName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
+    .slice(0, 60)
+}
+
+function headerCell(value: string) {
+  return {
+    backgroundColor: '#6f5b35',
+    borderColor: '#c7bda9',
+    borderStyle: 'thin' as const,
+    fontWeight: 'bold' as const,
+    textColor: '#ffffff',
+    value,
+  }
+}
+
+function textCell(value: string | null | undefined) {
+  return {
+    borderColor: '#d8d2c8',
+    borderStyle: 'thin' as const,
+    value: value?.trim() || '',
+  }
+}
+
+function numberCell(value: number | null | undefined) {
+  return {
+    align: 'right' as const,
+    borderColor: '#d8d2c8',
+    borderStyle: 'thin' as const,
+    value:
+      typeof value === 'number' && Number.isFinite(value) ? value : undefined,
+  }
+}
+
+function buildAsistenciasSheet(evento: Evento, rows: Asistencia[]): SheetData {
+  return [
+    [
+      headerCell('Asistencia ID'),
+      headerCell('Evento ID'),
+      headerCell('Evento'),
+      headerCell('Descripcion'),
+      headerCell('Lugar'),
+      headerCell('Direccion'),
+      headerCell('Flyer URL'),
+      headerCell('Fecha desde'),
+      headerCell('Fecha hasta'),
+      headerCell('Horario inicio'),
+      headerCell('Horario fin'),
+      headerCell('Dia del evento'),
+      headerCell('Fecha local asistencia'),
+      headerCell('Fecha y hora registro'),
+      headerCell('Cedula'),
+      headerCell('Nombre completo'),
+      headerCell('Telefono'),
+      headerCell('Correo electronico'),
+      headerCell('Dentro del local'),
+      headerCell('Distancia metros'),
+      headerCell('Latitud participante'),
+      headerCell('Longitud participante'),
+      headerCell('IP'),
+      headerCell('Dispositivo'),
+      headerCell('User agent'),
+    ],
+    ...rows.map((row) => [
+      textCell(row.id),
+      textCell(evento.id),
+      textCell(evento.nombre),
+      textCell(evento.descripcion),
+      textCell(evento.lugar),
+      textCell(evento.direccion),
+      textCell(evento.flyer_url),
+      textCell(evento.fecha_desde),
+      textCell(evento.fecha_hasta),
+      textCell(evento.hora_inicio),
+      textCell(evento.hora_fin),
+      textCell(getEventoDayLabel(evento, row)),
+      textCell(row.fecha_local),
+      textCell(formatDateTime(row.creado_en)),
+      textCell(row.cedula),
+      textCell(row.nombre_completo),
+      textCell(row.telefono),
+      textCell(row.email),
+      textCell(row.dentro_del_cuadrante ? 'Si' : 'No'),
+      numberCell(row.distancia_metros),
+      numberCell(row.latitud),
+      numberCell(row.longitud),
+      textCell(row.ip_address),
+      textCell(row.device_id),
+      textCell(row.user_agent),
+    ]),
+  ]
+}
+
+const asistenciaExportColumns = [
+  { width: 38 },
+  { width: 38 },
+  { width: 32 },
+  { width: 42 },
+  { width: 24 },
+  { width: 32 },
+  { width: 48 },
+  { width: 14 },
+  { width: 14 },
+  { width: 14 },
+  { width: 14 },
+  { width: 14 },
+  { width: 18 },
+  { width: 22 },
+  { width: 14 },
+  { width: 32 },
+  { width: 18 },
+  { width: 30 },
+  { width: 16 },
+  { width: 16 },
+  { width: 20 },
+  { width: 20 },
+  { width: 24 },
+  { width: 40 },
+  { width: 60 },
+]
+
 function getAttendanceStats(eventoId: string, asistencias: Asistencia[]) {
   const rows = asistencias.filter((row) => row.evento_id === eventoId)
   const dentro = rows.filter((row) => row.dentro_del_cuadrante).length
@@ -156,6 +288,8 @@ export function PanelPage() {
   } = usePanelStore()
   const [isEventosLoading, setIsEventosLoading] = useState(false)
   const [isAsistenciasLoading, setIsAsistenciasLoading] = useState(false)
+  const [cedulaFilter, setCedulaFilter] = useState('')
+  const [isExportingAsistencias, setIsExportingAsistencias] = useState(false)
   const [isSavingEvento, setIsSavingEvento] = useState(false)
   const [isUploadingFlyer, setIsUploadingFlyer] = useState(false)
   const { theme, toggleTheme } = useThemeMode()
@@ -168,6 +302,17 @@ export function PanelPage() {
   ).length
   const currentCedula = cedulaFromAuthEmail(user?.email)
   const selectedAvailability = getEventoAvailability(evento)
+  const filteredAsistencias = useMemo(() => {
+    const filter = normalizeCedulaFilter(cedulaFilter)
+
+    if (!filter) {
+      return selectedStats.rows
+    }
+
+    return selectedStats.rows.filter((row) =>
+      normalizeCedulaFilter(row.cedula).includes(filter),
+    )
+  }, [cedulaFilter, selectedStats.rows])
 
   useEffect(() => {
     if (!isDataServiceConfigured) {
@@ -318,6 +463,49 @@ export function PanelPage() {
       })
     } finally {
       setIsUploadingFlyer(false)
+    }
+  }
+
+  async function handleExportAsistencias() {
+    if (filteredAsistencias.length === 0) {
+      toast.error('No hay asistencias para exportar', {
+        description: 'Ajusta el filtro o selecciona otro evento.',
+      })
+      return
+    }
+
+    setIsExportingAsistencias(true)
+
+    try {
+      const { default: writeXlsxFile } = await import(
+        'write-excel-file/browser'
+      )
+      const baseName = sanitizeFileName(evento.nombre) || 'evento'
+      const suffix = cedulaFilter
+        ? `-cedula-${normalizeCedulaFilter(cedulaFilter)}`
+        : ''
+
+      await writeXlsxFile(
+        buildAsistenciasSheet(evento, filteredAsistencias),
+        {
+          columns: asistenciaExportColumns,
+          sheet: 'Asistencias',
+          stickyRowsCount: 1,
+        },
+      ).toFile(`asistencias-${baseName}${suffix}.xlsx`)
+
+      toast.success('Excel exportado', {
+        description: `${filteredAsistencias.length} registros incluidos.`,
+      })
+    } catch (error) {
+      toast.error('No se pudo exportar', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Intenta nuevamente en unos segundos.',
+      })
+    } finally {
+      setIsExportingAsistencias(false)
     }
   }
 
@@ -893,7 +1081,8 @@ export function PanelPage() {
                 <CardHeader>
                   <CardTitle>Asistencias</CardTitle>
                   <CardDescription>
-                    {evento.nombre} · {selectedStats.total} registros
+                    {evento.nombre} · {filteredAsistencias.length} de{' '}
+                    {selectedStats.total} registros
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -901,14 +1090,29 @@ export function PanelPage() {
                     <div className="relative w-full sm:max-w-xs">
                       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        placeholder="Buscar por cedula, nombre o contacto"
+                        inputMode="numeric"
+                        placeholder="Filtrar por cedula"
+                        value={cedulaFilter}
+                        onChange={(event) => setCedulaFilter(event.target.value)}
                         className="pl-10"
-                        disabled
                       />
                     </div>
-                    <Button type="button" variant="outline" disabled>
-                      <Download />
-                      Exportar
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleExportAsistencias()}
+                      disabled={
+                        isExportingAsistencias ||
+                        isAsistenciasLoading ||
+                        filteredAsistencias.length === 0
+                      }
+                    >
+                      {isExportingAsistencias ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Download />
+                      )}
+                      {isExportingAsistencias ? 'Exportando' : 'Exportar Excel'}
                     </Button>
                   </div>
 
@@ -929,7 +1133,7 @@ export function PanelPage() {
                       <span>Fecha</span>
                     </div>
                     <div className="divide-y">
-                      {selectedStats.rows.map((row) => (
+                      {filteredAsistencias.map((row) => (
                         <div
                           key={row.id}
                           className="grid gap-3 px-3 py-3 text-sm md:grid-cols-[0.85fr_1fr_1.15fr_0.8fr_0.75fr_1fr] md:items-center md:gap-2"
@@ -1005,6 +1209,13 @@ export function PanelPage() {
                           </div>
                         </div>
                       ))}
+                      {filteredAsistencias.length === 0 ? (
+                        <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+                          {cedulaFilter
+                            ? 'No hay asistencias para esa cedula.'
+                            : 'Todavia no hay asistencias registradas.'}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 

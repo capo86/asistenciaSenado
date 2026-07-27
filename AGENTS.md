@@ -14,6 +14,8 @@ Aplicacion web institucional para registrar asistencias a eventos de la Academia
 - CRUD basico de eventos desde el panel.
 - Grilla/listado de eventos en el panel.
 - Listado de asistencias reales del evento seleccionado.
+- Filtro de asistencias por cedula en el panel.
+- Exportacion Excel `.xlsx` de asistencias con columnas separadas.
 - Generacion de QR por evento, con opcion de copiar, descargar y compartir.
 - Mapa OpenStreetMap en el panel para marcar visualmente latitud/longitud del evento.
 - Carga de flyer por evento en Storage y visualizacion del flyer en el front publico.
@@ -34,6 +36,7 @@ Aplicacion web institucional para registrar asistencias a eventos de la Academia
 - Lucide React para iconos.
 - Sonner para toasts.
 - QR con `qrcode.react`.
+- Exportacion Excel con `write-excel-file`, importado dinamicamente desde el panel.
 - Mapa con Leaflet + React integration propia en `EventLocationMap`.
 - Vercel CLI y Supabase CLI fueron instalados durante el avance del proyecto.
 - Lint con `oxlint`.
@@ -87,6 +90,12 @@ Paginas principales:
 - `src/pages/PanelAccessPage.tsx`: decide si muestra login o panel segun sesion.
 - `src/pages/PanelLoginPage.tsx`: login del panel.
 - `src/pages/PanelPage.tsx`: gestion de eventos, QR, mapa y asistencias.
+
+Panel de asistencias:
+
+- El filtro por cedula debe aplicarse a la grilla y al Excel exportado.
+- El Excel debe mantener columnas separadas para asistencia ID, evento, fechas, dia del evento, cedula, nombre, telefono, correo, ubicacion, distancia, IP, dispositivo y user agent.
+- No cargar la libreria de Excel en el bundle inicial; usar import dinamico.
 
 En mobile, el orden del front publico debe mantenerse asi:
 
