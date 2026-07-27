@@ -617,10 +617,10 @@ export function AsistenciaPage({ eventoId }: AsistenciaPageProps) {
                 <div className="border-l border-[var(--institutional-line)] pl-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="size-4 text-[var(--institutional-gold)]" />
-                    Radio
+                    Dirección
                   </div>
                   <p className="mt-1 text-sm font-medium">
-                    {activeEvento.radio_metros} metros
+                    {activeEvento.direccion || activeEvento.lugar}
                   </p>
                 </div>
                 <div className="border-l border-border pl-4">
