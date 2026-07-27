@@ -19,8 +19,24 @@ type EventQrCardProps = {
 }
 
 const QR_SIZE = 240
-const QR_LOGO_FRAME_SIZE = 72
-const QR_LOGO_SIZE = 52
+const QR_EXPORT_SIZE = 1024
+const QR_LOGO_FRAME_HEIGHT = 66
+const QR_LOGO_FRAME_WIDTH = 92
+const QR_LOGO_HEIGHT = 50
+const QR_LOGO_WIDTH = 74
+const QR_LOGO_MARK_CROP = {
+  height: 900,
+  width: 1330,
+  x: 460,
+  y: 130,
+}
+
+const qrLogoPreviewStyle = {
+  height: '7.8125rem',
+  left: '-1.625rem',
+  top: '-0.45rem',
+  width: '7.8125rem',
+}
 
 function getEventUrl(eventoId: string) {
   const origin =
@@ -70,25 +86,30 @@ async function canvasToBrandedBlob(canvas: HTMLCanvasElement) {
     throw new Error('No se pudo generar la imagen del QR.')
   }
 
-  outputCanvas.width = canvas.width
-  outputCanvas.height = canvas.height
-  context.drawImage(canvas, 0, 0)
+  outputCanvas.width = QR_EXPORT_SIZE
+  outputCanvas.height = QR_EXPORT_SIZE
+  context.imageSmoothingEnabled = false
+  context.drawImage(canvas, 0, 0, QR_EXPORT_SIZE, QR_EXPORT_SIZE)
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
 
-  const scale = canvas.width / QR_SIZE
-  const frameSize = QR_LOGO_FRAME_SIZE * scale
-  const logoSize = QR_LOGO_SIZE * scale
-  const frameX = (canvas.width - frameSize) / 2
-  const frameY = (canvas.height - frameSize) / 2
-  const logoX = (canvas.width - logoSize) / 2
-  const logoY = (canvas.height - logoSize) / 2
+  const scale = QR_EXPORT_SIZE / QR_SIZE
+  const frameWidth = QR_LOGO_FRAME_WIDTH * scale
+  const frameHeight = QR_LOGO_FRAME_HEIGHT * scale
+  const logoWidth = QR_LOGO_WIDTH * scale
+  const logoHeight = QR_LOGO_HEIGHT * scale
+  const frameX = (QR_EXPORT_SIZE - frameWidth) / 2
+  const frameY = (QR_EXPORT_SIZE - frameHeight) / 2
+  const logoX = (QR_EXPORT_SIZE - logoWidth) / 2
+  const logoY = (QR_EXPORT_SIZE - logoHeight) / 2
 
   context.save()
   roundedRect(
     context,
     frameX,
     frameY,
-    frameSize,
-    frameSize,
+    frameWidth,
+    frameHeight,
     10 * scale,
   )
   context.fillStyle = '#ffffff'
@@ -98,7 +119,17 @@ async function canvasToBrandedBlob(canvas: HTMLCanvasElement) {
   context.stroke()
   context.restore()
 
-  context.drawImage(logo, logoX, logoY, logoSize, logoSize)
+  context.drawImage(
+    logo,
+    QR_LOGO_MARK_CROP.x,
+    QR_LOGO_MARK_CROP.y,
+    QR_LOGO_MARK_CROP.width,
+    QR_LOGO_MARK_CROP.height,
+    logoX,
+    logoY,
+    logoWidth,
+    logoHeight,
+  )
 
   return new Promise<Blob>((resolve, reject) => {
     outputCanvas.toBlob((blob) => {
@@ -229,21 +260,25 @@ export function EventQrCard({ evento }: EventQrCardProps) {
                 className="block size-60"
                 imageSettings={{
                   excavate: true,
-                  height: QR_LOGO_FRAME_SIZE,
+                  height: QR_LOGO_FRAME_HEIGHT,
+                  opacity: 0,
                   src: academiaLogo,
-                  width: QR_LOGO_FRAME_SIZE,
+                  width: QR_LOGO_FRAME_WIDTH,
                 }}
                 title={`QR ${evento.nombre}`}
               />
               <div
-                className="pointer-events-none absolute left-1/2 top-1/2 flex size-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border border-zinc-200 bg-white p-2 shadow-sm"
+                className="pointer-events-none absolute left-1/2 top-1/2 flex h-[4.125rem] w-[5.75rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border border-zinc-200 bg-white shadow-sm"
                 aria-hidden="true"
               >
-                <img
-                  src={academiaLogo}
-                  alt=""
-                  className="size-[3.25rem] object-contain"
-                />
+                <span className="relative h-[3.125rem] w-[4.625rem] overflow-hidden">
+                  <img
+                    src={academiaLogo}
+                    alt=""
+                    className="absolute max-w-none object-contain"
+                    style={qrLogoPreviewStyle}
+                  />
+                </span>
               </div>
             </div>
           </div>
